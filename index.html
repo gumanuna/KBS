@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffca05" />
+  <title>단어카드 이름 추천받아요</title>
+
+  <style>
+    :root {
+      --yellow: #ffca05;
+      --yellow-soft: #fff3b8;
+      --yellow-deep: #e9ad00;
+      --blue: #08a9df;
+      --blue-soft: #dff5fc;
+      --blue-mid: #72cfea;
+      --blue-deep: #087dab;
+      --navy: #29465b;
+      --ink: #171820;
+      --white: #ffffff;
+      --pink: #ff2b8a;
+      --shadow: 0 16px 36px rgba(23, 24, 32, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family:
+        Pretendard,
+        "Noto Sans KR",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color: var(--ink);
+      background: #e7f2f6;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+      touch-action: manipulation;
+    }
+
+    /*
+      제목, 진행률, 카드, 버튼, 랜덤 섞기까지
+      전체 화면 구성이 9:16 비율 안에 들어갑니다.
+    */
+    .app-frame {
+      width: min(100vw, calc(100vh * 9 / 16), 520px);
+      aspect-ratio: 9 / 16;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
+      gap: 10px;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        12px
+        max(12px, env(safe-area-inset-bottom));
+      overflow: hidden;
+      background:
+        linear-gradient(
+          180deg,
+          var(--yellow) 0%,
+          var(--yellow) 34%,
+          var(--blue) 34%,
+          var(--blue) 100%
+        );
+      box-shadow: 0 0 38px rgba(23, 24, 32, 0.2);
+    }
+
+    .title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .title-wrap {
+      min-width: 0;
+    }
+
+    .year {
+      margin: 0 0 3px;
+      color: var(--blue);
+      font-size: clamp(12px, 3.7vw, 17px);
+      font-weight: 1000;
+      line-height: 1;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(21px, 7.1vw, 36px);
+      line-height: 1;
+      font-weight: 1000;
+      letter-spacing: -0.065em;
+    }
+
+    h1 span {
+      display: inline-block;
+      padding: 0.1em 0.22em 0.14em;
+      color: var(--white);
+      background: var(--ink);
+      transform: skew(-4deg);
+      box-shadow: 5px 5px 0 var(--blue);
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      font-size: clamp(10px, 2.9vw, 13px);
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .progress-track {
+      height: 10px;
+      overflow: hidden;
+      border: 3px solid var(--ink);
+      border-radius: 999px;
+      background: var(--white);
+    }
+
+    .mode-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      margin-bottom: 7px;
+      padding: 4px 12px;
+      border: 3px solid var(--ink);
+      border-radius: 999px;
+      color: var(--ink);
+      background: var(--blue-soft);
+      font-size: clamp(10px, 2.8vw, 12px);
+      font-weight: 1000;
+      line-height: 1;
+    }
+
+    .mode-badge.is-wrong-mode {
+      background: var(--pink);
+    }
+
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      background: var(--pink);
+      transition: width .25s ease;
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 5px;
+      font-size: clamp(9px, 2.5vw, 11px);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .category-list {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 1px 1px 5px;
+      scrollbar-width: thin;
+    }
+
+    .category-btn {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 5px 12px;
+      border: 3px solid var(--ink);
+      border-radius: 999px;
+      color: var(--ink);
+      background: var(--blue-soft);
+      cursor: pointer;
+      font-size: clamp(10px, 2.8vw, 12px);
+      font-weight: 1000;
+      white-space: nowrap;
+    }
+
+    .category-btn.is-active {
+      color: var(--white);
+      background: var(--blue-deep);
+    }
+
+    .card-shell {
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      border: 4px solid var(--ink);
+      border-radius: 22px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+    }
+
+    .card-shell.is-wrong-mode {
+      border-color: var(--pink);
+      box-shadow: 7px 7px 0 var(--ink), 0 0 0 3px var(--ink);
+    }
+
+    .card-face {
+      width: 100%;
+      height: 100%;
+    }
+
+    .front {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 28px 22px;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(8,169,223,.20) 0 42px, transparent 44px),
+        radial-gradient(circle at 14% 88%, rgba(255,202,5,.22) 0 50px, transparent 52px),
+        var(--white);
+    }
+
+    .word {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      margin: 0;
+      text-align: center;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      line-height: 1.12;
+      font-weight: 1000;
+      letter-spacing: -0.07em;
+    }
+
+    .word-hanja {
+      display: block;
+      margin-top: 0.12em;
+      font-size: 0.8em;
+      letter-spacing: -0.04em;
+    }
+
+    .word-hanja[hidden] {
+      display: none;
+    }
+
+    .tap-guide {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      padding: 7px 11px;
+      border-radius: 999px;
+      color: var(--white);
+      background: var(--ink);
+      font-size: clamp(9px, 2.6vw, 11px);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .back {
+      display: none;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 28px 24px;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(255,202,5,.22) 0 42px, transparent 44px),
+        radial-gradient(circle at 14% 88%, rgba(8,169,223,.16) 0 50px, transparent 52px),
+        var(--white);
+      scrollbar-width: thin;
+    }
+
+    .back.is-visible {
+      display: grid;
+      place-items: center;
+    }
+
+    .meaning {
+      width: 100%;
+      margin: auto 0;
+      text-align: center;
+      font-size: clamp(20px, 5.6vw, 30px);
+      font-weight: 900;
+      line-height: 1.55;
+      letter-spacing: -0.045em;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr 1fr;
+      gap: 7px;
+      padding: 8px;
+      border: 3px solid var(--ink);
+      border-radius: 18px;
+      background: rgba(255,255,255,.95);
+      box-shadow: 5px 5px 0 rgba(16,24,32,.75);
+    }
+
+    .btn {
+      min-height: 44px;
+      border: 3px solid var(--ink);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: clamp(12px, 3.4vw, 14px);
+      font-weight: 1000;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+    }
+
+    .btn-prev {
+      color: var(--ink);
+      background: var(--white);
+    }
+
+    .btn-flip {
+      color: var(--ink);
+      background: var(--yellow);
+    }
+
+    .btn-next {
+      color: var(--white);
+      background: var(--blue);
+    }
+
+    .answer-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .btn-know,
+    .btn-dont-know {
+      min-height: 42px;
+      border: 3px solid var(--ink);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: clamp(12px, 3.4vw, 14px);
+      font-weight: 1000;
+      box-shadow: 4px 4px 0 rgba(16,24,32,.75);
+    }
+
+    .btn-know {
+      color: var(--ink);
+      background: var(--blue-soft);
+    }
+
+    .btn-dont-know {
+      color: var(--white);
+      background: var(--pink);
+    }
+
+    .btn-know:active,
+    .btn-dont-know:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 rgba(16,24,32,.75);
+    }
+
+    .shuffle-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-shuffle,
+    .btn-wrong-note {
+      flex: 1 1 0;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 3px solid var(--ink);
+      border-radius: 999px;
+      color: var(--white);
+      cursor: pointer;
+      font-size: clamp(10px, 3vw, 13px);
+      font-weight: 1000;
+      box-shadow: 5px 5px 0 var(--ink);
+    }
+
+    .btn-shuffle {
+      background: var(--navy);
+    }
+
+    .btn-wrong-note {
+      color: var(--ink);
+      background: var(--blue-mid);
+    }
+
+    .btn-wrong-note.is-active {
+      color: var(--ink);
+      background: var(--white);
+      box-shadow: 5px 5px 0 var(--ink), inset 0 0 0 3px var(--blue-mid);
+    }
+
+    .btn-shuffle:active,
+    .btn-wrong-note:active {
+      transform: translate(2px, 2px);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(24px + env(safe-area-inset-bottom));
+      z-index: 50;
+      transform: translateX(-50%) translateY(15px);
+      padding: 10px 14px;
+      border: 3px solid var(--ink);
+      border-radius: 999px;
+      color: var(--white);
+      background: var(--ink);
+      font-size: 12px;
+      font-weight: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-height: 700px) {
+      .app-frame {
+        gap: 7px;
+        padding-top: max(8px, env(safe-area-inset-top));
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+      }
+
+      .subtitle {
+        margin-top: 7px;
+      }
+
+      .controls {
+        padding: 6px;
+      }
+
+      .btn,
+      .btn-shuffle,
+      .btn-wrong-note,
+      .btn-know,
+      .btn-dont-know {
+        min-height: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-frame">
+    <header>
+      <div class="title-row">
+        <div class="title-wrap">
+          <p class="year">시대에듀</p>
+          <h1><span>단어카드 이름 추천받아요</span></h1>
+          <p class="subtitle">2027 기분좋은 KBS한국어능력시험 #반반끝 단기기본서</p>
+        </div>
+
+      </div>
+    </header>
+
+    <section aria-label="진행률">
+      <div class="mode-badge" id="modeBadge">전체 학습 중</div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text">
+        <span id="progressLabel">진행률 33%</span>
+        <span id="progressCount">1장 학습 중</span>
+      </div>
+    </section>
+
+    <nav class="category-list" id="categoryList" aria-label="카테고리 선택"></nav>
+
+    <main class="card-shell">
+      <section class="card-face front" id="front" aria-label="카드 앞면">
+        <h2 class="word" id="word">
+          <span id="wordKorean"></span>
+          <span class="word-hanja" id="wordHanja" hidden></span>
+        </h2>
+        <div class="tap-guide">카드를 눌러 뜻 보기</div>
+      </section>
+
+      <section class="card-face back" id="back" aria-label="카드 뒷면">
+        <p class="meaning" id="meaning"></p>
+      </section>
+    </main>
+
+    <nav class="controls" aria-label="카드 조작">
+      <button class="btn btn-dont-know" id="dontKnowBtn" type="button">몰라요</button>
+      <button class="btn btn-flip" id="flipBtn" type="button">뜻 보기</button>
+      <button class="btn btn-know" id="knowBtn" type="button">알아요</button>
+    </nav>
+
+    <div class="shuffle-row">
+      <button class="btn-wrong-note" id="wrongNoteBtn" type="button">오답노트 (0)</button>
+      <button class="btn-shuffle" id="shuffleBtn" type="button">랜덤 섞기</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">카드를 다시 섞었습니다.</div>
+
+  <script>
+    /*
+      아래 cardText 안에 한 줄당 카드 하나를 입력하세요.
+      입력 순서: 단어 | 뜻풀이 | 카테고리
+      사자성어의 한자를 다음 줄에 표시하려면 단어 뒤에 \n을 입력합니다.
+      카테고리의 입력 순서는 상관없으며, 새 카테고리 버튼도 자동 생성됩니다.
+    */
+    const cardText = String.raw`
+한자테슽1\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽2\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽3\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽4\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽5\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽6\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽7\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+한자테슽8\n望雲之情 | 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. 테스트테스트어디까지 길어지나 테스트세트트. | 한자어
+
+고유어테슽1 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽2 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽3 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽4 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽5 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽6 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽7 | 은하수를 뜻하는 고유어. | 고유어
+고유어테슽8 | 은하수를 뜻하는 고유어. | 고유어
+
+관용표현 어디까지 길어지나 테스트테스트테스트테스트1 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트2 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트3 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트4 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트5 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트6 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트7 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+관용표현 어디까지 길어지나 테스트테스트테스트테스트8 | 아슬아슬하여 마음이 조마조마하도록 몹시 긴장하다. | 관용표현
+
+누리집1 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집2 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집3 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집4 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집5 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집6 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집7 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+누리집8 | 인터넷에서 사용자들이 정보가 필요할 때 언제든지 그것을 볼 수 있도록 웹 서버에 저장된 집합체. ‘홈페이지’를 다듬은 말이다. | 순화어
+`;
+
+    const cards = cardText
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map((line, index) => {
+        const parts = line.split("|").map(part => part.trim());
+
+        if (parts.length < 3) {
+          throw new Error(`${index + 1}번째 카드의 구분 기호(|)를 확인하세요.`);
+        }
+
+        const word = parts.shift().replace(/\\n/g, "\n");
+        const category = parts.pop();
+        const meaning = parts.join(" | ");
+
+        return { id: `${word}|${meaning}|${category}`, word, meaning, category };
+      });
+
+    let order = cards.map((_, index) => index);
+    let selectedCategory = "전체";
+    let wrongMode = false;
+    let currentIndex = 0;
+    let showingBack = false;
+    let toastTimer;
+    const storageKey = "kbs-word-card-wrong-note";
+    let wrongCardIds = new Set(JSON.parse(localStorage.getItem(storageKey) || "[]"));
+    const validCardIds = new Set(cards.map(card => card.id));
+    wrongCardIds = new Set([...wrongCardIds].filter(id => validCardIds.has(id)));
+    localStorage.setItem(storageKey, JSON.stringify([...wrongCardIds]));
+
+    const progressBar = document.getElementById("progressBar");
+    const progressLabel = document.getElementById("progressLabel");
+    const progressCount = document.getElementById("progressCount");
+    const modeBadge = document.getElementById("modeBadge");
+    const cardShell = document.querySelector(".card-shell");
+    const categoryList = document.getElementById("categoryList");
+    const front = document.getElementById("front");
+    const back = document.getElementById("back");
+    const word = document.getElementById("word");
+    const wordKorean = document.getElementById("wordKorean");
+    const wordHanja = document.getElementById("wordHanja");
+    const meaning = document.getElementById("meaning");
+    const flipBtn = document.getElementById("flipBtn");
+    const knowBtn = document.getElementById("knowBtn");
+    const dontKnowBtn = document.getElementById("dontKnowBtn");
+    const wrongNoteBtn = document.getElementById("wrongNoteBtn");
+    const shuffleBtn = document.getElementById("shuffleBtn");
+    const toast = document.getElementById("toast");
+
+    function makeCategoryButtons() {
+      const categories = [
+        "전체",
+        ...new Set(cards.map(card => card.category).filter(Boolean))
+      ];
+
+      categoryList.replaceChildren();
+
+      categories.forEach(category => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.textContent = category;
+        button.classList.toggle("is-active", category === selectedCategory);
+        button.setAttribute("aria-pressed", category === selectedCategory);
+        button.addEventListener("click", () => selectCategory(category));
+        categoryList.appendChild(button);
+      });
+    }
+
+    function selectCategory(category) {
+      selectedCategory = category;
+      rebuildOrder();
+      makeCategoryButtons();
+      showToast(`${category} 카테고리를 선택했습니다.`);
+    }
+
+    function rebuildOrder() {
+      order = cards
+        .map((card, index) => ({ card, index }))
+        .filter(({ card }) => selectedCategory === "전체" || card.category === selectedCategory)
+        .filter(({ card }) => !wrongMode || wrongCardIds.has(card.id))
+        .map(({ index }) => index);
+
+      currentIndex = 0;
+      render();
+    }
+
+    function currentCard() {
+      return cards[order[currentIndex]];
+    }
+
+    function fitWord() {
+      const length = wordKorean.textContent.replace(/\s/g, "").length;
+
+      if (length <= 4) {
+        word.style.fontSize = "clamp(44px, 14vw, 70px)";
+      } else if (length <= 8) {
+        word.style.fontSize = "clamp(36px, 11vw, 58px)";
+      } else {
+        word.style.fontSize = "clamp(28px, 8.5vw, 46px)";
+      }
+    }
+
+    function updateProgress() {
+      const total = order.length;
+      const current = total ? currentIndex + 1 : 0;
+      const percent = total ? Math.round((current / total) * 100) : 0;
+      const visibleWrongCount = cards.filter(card =>
+        (selectedCategory === "전체" || card.category === selectedCategory) &&
+        wrongCardIds.has(card.id)
+      ).length;
+
+      progressBar.style.width = `${percent}%`;
+      progressLabel.textContent = `학습률 ${percent}%`;
+      progressCount.textContent = `${current} / ${total}`;
+      modeBadge.textContent = wrongMode ? "오답 학습 중" : "전체 학습 중";
+      modeBadge.classList.toggle("is-wrong-mode", wrongMode);
+      cardShell.classList.toggle("is-wrong-mode", wrongMode);
+      wrongNoteBtn.textContent = wrongMode
+        ? `전체 학습으로 (${visibleWrongCount})`
+        : `오답노트 (${visibleWrongCount})`;
+      wrongNoteBtn.classList.toggle("is-active", wrongMode);
+    }
+
+    function showFront() {
+      showingBack = false;
+      front.style.display = "grid";
+      back.classList.remove("is-visible");
+      back.scrollTop = 0;
+      flipBtn.textContent = "뜻 보기";
+    }
+
+    function showBack() {
+      showingBack = true;
+      front.style.display = "none";
+      back.classList.add("is-visible");
+      back.scrollTop = 0;
+      flipBtn.textContent = "단어 보기";
+    }
+
+    function toggleCard() {
+      showingBack ? showFront() : showBack();
+    }
+
+    function render() {
+      if (!order.length) {
+        wordKorean.textContent = wrongMode ? "오답노트가 비었습니다" : "카드가 없습니다";
+        wordHanja.textContent = "";
+        wordHanja.hidden = true;
+        meaning.textContent = wrongMode
+          ? "몰라요를 누른 카드가 여기에 저장됩니다."
+          : "선택한 카테고리에 등록된 카드를 확인하세요.";
+        word.style.fontSize = "clamp(28px, 8.5vw, 46px)";
+        updateProgress();
+        showFront();
+        return;
+      }
+
+      const card = currentCard();
+      const [korean, ...hanjaLines] = card.word.split("\n");
+      const hanja = hanjaLines.join("\n").trim();
+
+      wordKorean.textContent = korean;
+      wordHanja.textContent = hanja;
+      wordHanja.hidden = !hanja;
+      meaning.textContent = card.meaning;
+      fitWord();
+      updateProgress();
+
+      showFront();
+    }
+
+    function moveCard(direction) {
+      if (!order.length) return;
+      currentIndex =
+        (currentIndex + direction + order.length) % order.length;
+      render();
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.classList.add("show");
+
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 1200);
+    }
+
+    function shuffleCards() {
+      if (!order.length) {
+        showToast("섞을 카드가 없습니다.");
+        return;
+      }
+      for (let i = order.length - 1; i > 0; i--) {
+        const randomIndex = Math.floor(Math.random() * (i + 1));
+        [order[i], order[randomIndex]] = [order[randomIndex], order[i]];
+      }
+
+      currentIndex = 0;
+      render();
+      showToast("카드를 다시 섞었습니다.");
+    }
+
+    function saveWrongNote() {
+      localStorage.setItem(storageKey, JSON.stringify([...wrongCardIds]));
+    }
+
+    function answerCard(isKnown) {
+      if (!order.length) return;
+
+      const card = currentCard();
+      if (isKnown) {
+        wrongCardIds.delete(card.id);
+      } else {
+        wrongCardIds.add(card.id);
+        showToast("몰라요. 오답노트에 저장했습니다.");
+      }
+      saveWrongNote();
+
+      if (wrongMode) {
+        const removedIndex = currentIndex;
+        order = order.filter(index => wrongCardIds.has(cards[index].id));
+        currentIndex = order.length ? Math.min(removedIndex, order.length - 1) : 0;
+        render();
+      } else {
+        updateProgress();
+        moveCard(1);
+      }
+    }
+
+    function toggleWrongNote() {
+      wrongMode = !wrongMode;
+      rebuildOrder();
+      showToast(wrongMode ? "오답노트를 시작합니다." : "전체 학습으로 돌아갑니다.");
+    }
+
+    front.addEventListener("click", toggleCard);
+    flipBtn.addEventListener("click", toggleCard);
+    knowBtn.addEventListener("click", () => answerCard(true));
+    dontKnowBtn.addEventListener("click", () => answerCard(false));
+    wrongNoteBtn.addEventListener("click", toggleWrongNote);
+    shuffleBtn.addEventListener("click", shuffleCards);
+
+    makeCategoryButtons();
+    render();
+  </script>
+</body>
+</html>
